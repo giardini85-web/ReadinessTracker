@@ -1,0 +1,1 @@
+export interface AdaptiveReminderPlan { nextReminder: string; } export class WeighInReminderEngine { computeOptimalReminderPattern(): AdaptiveReminderPlan { return { nextReminder: 'Domani mattina' }; } }

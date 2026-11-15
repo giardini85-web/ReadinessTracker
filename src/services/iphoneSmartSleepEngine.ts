@@ -1,0 +1,1 @@
+export interface IphoneSleepTelemetry { state: string; } export class IphoneSmartSleepEngine { processTelemetry(): IphoneSleepTelemetry { return { state: 'DEEP_SLEEP' }; } }

@@ -1,0 +1,1 @@
+export class IphoneSensorService { async startNightMonitoring() { return true; } async stopNightMonitoring() { return true; } }

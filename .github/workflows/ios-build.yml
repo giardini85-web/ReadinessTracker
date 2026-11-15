@@ -1,0 +1,83 @@
+name: Build iOS IPA (Unsigned for Sideloadly)
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CI: "1"
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: 1. Checkout codice sorgente
+        uses: actions/checkout@v4
+
+      - name: 2. Configura Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 3. Configura package.json per Standard Expo (index.js)
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (fs.existsSync("package.json")) {
+              const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+              pkg.main = "index.js";
+              fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+            }
+          '
+
+      - name: 4. Installa dipendenze NPM
+        run: npm install --legacy-peer-deps
+
+      - name: 5. Genera file audio sveglia (smart_alarm.wav)
+        run: |
+          mkdir -p assets
+          if [ ! -f assets/smart_alarm.wav ]; then
+            afconvert -f WAVE -d LEI16 /System/Library/Sounds/Glass.aiff ./assets/smart_alarm.wav
+          fi
+
+      - name: 6. Genera progetto nativo iOS (Expo Prebuild con Router)
+        env:
+          EXPO_NO_GIT_STATUS: 1
+        run: npx expo prebuild --platform ios --clean
+
+      - name: 7. Compila Release iOS con Xcode (Unsigned per Sideloadly)
+        run: |
+          WORKSPACE=$(ls -d ios/*.xcworkspace | head -n 1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: 8. Impacchetta in ReadinessTracker.ipa
+        run: |
+          mkdir -p Payload
+          cp -r ios/build/Build/Products/Release-iphoneos/*.app Payload/
+          zip -qq -r ReadinessTracker.ipa Payload
+
+      - name: 9. Carica ReadinessTracker.ipa pronto per il download
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReadinessTracker-iOS-IPA
+          path: ReadinessTracker.ipa
+          retention-days: 14

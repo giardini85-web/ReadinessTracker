@@ -1,0 +1,1 @@
+export interface SmartAlarmDecision { triggerNow: boolean; reason: string; }

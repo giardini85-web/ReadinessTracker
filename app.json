@@ -1,0 +1,19 @@
+﻿{
+  "expo": {
+    "name": "ReadinessTracker",
+    "slug": "readiness-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "ios": {
+      "bundleIdentifier": "com.readinesstracker.app",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Lettura sonno e metriche",
+        "NSHealthUpdateUsageDescription": "Salvataggio Readiness",
+        "NSMicrophoneUsageDescription": "Sveglia intelligente",
+        "NSMotionUsageDescription": "Attigrafia notturna",
+        "NSBluetoothAlwaysUsageDescription": "PICOOC Mini",
+        "UIBackgroundModes": ["audio", "bluetooth-central", "fetch", "processing"]
+      }
+    }
+  }
+}

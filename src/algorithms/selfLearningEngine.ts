@@ -1,0 +1,1 @@
+export interface InteractivePrompt { id: string; message: string; } export class SelfLearningEngine { checkBiometricAnomalies(m: any): InteractivePrompt | null { return null; } checkProlongedImmobility(a: number, b: string): InteractivePrompt | null { return null; } }
