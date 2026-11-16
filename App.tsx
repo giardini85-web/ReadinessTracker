@@ -290,27 +290,37 @@ export default function App() {
     );
   };
 
-  const renderTrendsTab = () => (
-    <View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Trend PICOOC & EWMA (Storico)</Text>
-        <Text style={styles.cardSubtitle}>{velocityReport?.statusLabel || 'Nessun trend disponibile'}</Text>
+  const renderTrendsTab = () => {
+    const historyPoints = velocityReport?.points || [];
+    return (
+      <View>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Trend PICOOC & EWMA (Storico 14 Giorni)</Text>
+          <Text style={styles.cardSubtitle}>{velocityReport?.statusLabel || 'Analisi in corso...'}</Text>
 
-        {selectedChartPoint && (
-          <View style={styles.selectedPointBox}>
-            <Text style={styles.selectedPointDate}>Data: {selectedChartPoint.date}</Text>
-            <Text style={styles.selectedPointWeight}>Peso Smussato: {selectedChartPoint.smoothedWeight} kg</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={handleScanPicoocBle} disabled={isScanningPicooc}>
+            <Text style={styles.primaryButtonText}>
+              {isScanningPicooc ? 'Scansione in corso...' : 'Esegui / Simula Pesata PICOOC Live'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionHeader}>STORICO PESO E SMUSSAMENTO EWMA</Text>
+        {historyPoints.map((pt, idx) => (
+          <View key={idx} style={[styles.card, { padding: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+            <View>
+              <Text style={{ color: '#38BDF8', fontSize: 13, fontWeight: '700' }}>{pt.date}</Text>
+              <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>Peso Reale: {pt.rawWeight} kg</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ color: '#F8FAFC', fontSize: 15, fontWeight: '800' }}>{pt.smoothedWeight} kg</Text>
+              <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '600' }}>EWMA Trend</Text>
+            </View>
           </View>
-        )}
-
-        <TouchableOpacity style={styles.primaryButton} onPress={handleScanPicoocBle} disabled={isScanningPicooc}>
-          <Text style={styles.primaryButtonText}>
-            {isScanningPicooc ? 'Scansione in corso...' : 'Simula / Esegui Pesata PICOOC Live'}
-          </Text>
-        </TouchableOpacity>
+        ))}
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderSleepAlarmTab = () => (
     <View>
