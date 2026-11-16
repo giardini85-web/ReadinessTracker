@@ -49,7 +49,6 @@ export default function App() {
   const [sexInput, setSexInput] = useState<'MALE' | 'FEMALE'>('MALE');
 
   const [isScanningPicooc, setIsScanningPicooc] = useState<boolean>(false);
-  const [alarmTime, setAlarmTime] = useState<string>('07:00');
   const [isNightMonitoring, setIsNightMonitoring] = useState<boolean>(false);
 
   const syncManagerRef = useRef(new SyncManager());
@@ -75,13 +74,16 @@ export default function App() {
       setIsLoading(true);
       const synced = await syncManagerRef.current.syncAllForToday();
       const evaluated = readinessCalcRef.current.evaluateToday(synced);
-      synced.readinessScore = evaluated.score;
+      
+      // Se i dati odierni sono vuoti (--), usiamo un punteggio neutro di fallback
+      const finalScore = synced.hrvNightly > 0 ? evaluated.score : 70;
+      synced.readinessScore = finalScore;
+      
       saveDailyMetrics(synced);
-
       setTodayMetrics(synced);
-      setReadiness(evaluated);
+      setReadiness({ ...evaluated, score: finalScore });
       refreshTrends();
-      setStatusBanner('Sincronizzato con SQLite locale e dati demo');
+      setStatusBanner('Sincronizzato con successo');
     } catch (err) {
       setStatusBanner(`Errore: ${String(err)}`);
       refreshTrends();
@@ -121,7 +123,7 @@ export default function App() {
 
     saveUserProfile(updatedProfile);
     setIsSettingsOpen(false);
-    setStatusBanner(`Profilo BIA aggiornato: ${updatedProfile.heightCm}cm, ${updatedProfile.age} anni`);
+    setStatusBanner(`Profilo aggiornato: ${updatedProfile.heightCm}cm, ${updatedProfile.age} anni`);
   };
 
   const handleReseedDemoData = async () => {
@@ -129,7 +131,7 @@ export default function App() {
     seedDatabaseIfEmpty();
     setIsSettingsOpen(false);
     await bootstrapApp();
-    setStatusBanner('Ripristinati 14 giorni di dati storici nel database SQLite.');
+    setStatusBanner('Ripristinati 14 giorni di dati storici demo.');
   };
 
   const handleConfirmResetDatabase = () => {
@@ -190,7 +192,7 @@ export default function App() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <View style={styles.rowBetween}>
-            <Text style={styles.modalTitle}>Impostazioni & Profilo BIA</Text>
+            <Text style={styles.modalTitle}>Impostazioni & Profilo</Text>
             <TouchableOpacity onPress={() => setIsSettingsOpen(false)}>
               <Text style={styles.closeModalText}>Chiudi</Text>
             </TouchableOpacity>
@@ -245,91 +247,90 @@ export default function App() {
   const renderReadinessTab = () => {
     if (!todayMetrics || !readiness) return null;
     const themeColor = getSemaphoreColor(readiness.status);
+    const hasRealData = todayMetrics.hrvNightly > 0;
 
     return (
       <View>
         <View style={styles.heroCard}>
           <View style={[styles.scoreCircle, { borderColor: themeColor }]}>
-            <Text style={[styles.scoreValue, { color: themeColor }]}>{readiness.score}</Text>
+            <Text style={[styles.scoreValue, { color: themeColor }]}>{hasRealData ? readiness.score : '--'}</Text>
             <Text style={styles.scoreSubLabel}>READINESS</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: themeColor + '22' }]}>
             <View style={[styles.statusDot, { backgroundColor: themeColor }]} />
             <Text style={[styles.statusBadgeText, { color: themeColor }]}>
-              SEMAFORO {readiness.status === 'GREEN' ? 'VERDE' : readiness.status === 'YELLOW' ? 'GIALLO' : 'ROSSO'}
+              {hasRealData ? `SEMAFORO ${readiness.status === 'GREEN' ? 'VERDE' : readiness.status === 'YELLOW' ? 'GIALLO' : 'ROSSO'}` : 'IN ATTESA DI SINCRONIZZAZIONE'}
             </Text>
           </View>
-          <Text style={styles.recommendationText}>{readiness.workoutRecommendation}</Text>
+          <Text style={styles.recommendationText}>
+            {hasRealData ? readiness.workoutRecommendation : 'Premi "Sync" per leggere i dati di oggi da Apple Salute (Garmin / Oura / Salute).'}
+          </Text>
         </View>
 
-        <Text style={styles.sectionHeader}>PARAMETRI BIOMETRICI</Text>
+        <Text style={styles.sectionHeader}>PARAMETRI BIOMETRICI ODIERNI</Text>
         <View style={styles.metricsGrid}>
           <View style={styles.metricTile}>
             <Text style={styles.metricLabel}>HRV Notturna</Text>
-            <Text style={styles.metricValue}>{todayMetrics.hrvNightly} ms</Text>
+            <Text style={styles.metricValue}>{hasRealData ? `${todayMetrics.hrvNightly} ms` : '--'}</Text>
           </View>
           <View style={styles.metricTile}>
             <Text style={styles.metricLabel}>FC Riposo</Text>
-            <Text style={styles.metricValue}>{todayMetrics.restingHeartRate} bpm</Text>
+            <Text style={styles.metricValue}>{hasRealData ? `${todayMetrics.restingHeartRate} bpm` : '--'}</Text>
           </View>
           <View style={styles.metricTile}>
             <Text style={styles.metricLabel}>Body Battery</Text>
-            <Text style={styles.metricValue}>{todayMetrics.bodyBattery}%</Text>
+            <Text style={styles.metricValue}>{hasRealData ? `${todayMetrics.bodyBattery}%` : '--'}</Text>
           </View>
           <View style={styles.metricTile}>
             <Text style={styles.metricLabel}>Peso Corrente</Text>
-            <Text style={styles.metricValue}>{todayMetrics.weight ? `${todayMetrics.weight} kg` : 'N/D'}</Text>
+            <Text style={styles.metricValue}>{todayMetrics.weight ? `${todayMetrics.weight} kg` : '--'}</Text>
           </View>
         </View>
       </View>
     );
   };
 
-  const renderTrendsTab = () => {
-    return (
-      <View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Trend PICOOC & EWMA (14 Giorni)</Text>
-          <Text style={styles.cardSubtitle}>{velocityReport?.statusLabel || 'Nessun trend disponibile'}</Text>
+  const renderTrendsTab = () => (
+    <View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Trend PICOOC & EWMA (Storico)</Text>
+        <Text style={styles.cardSubtitle}>{velocityReport?.statusLabel || 'Nessun trend disponibile'}</Text>
 
-          {selectedChartPoint && (
-            <View style={styles.selectedPointBox}>
-              <Text style={styles.selectedPointDate}>Data: {selectedChartPoint.date}</Text>
-              <Text style={styles.selectedPointWeight}>Peso: {selectedChartPoint.smoothedWeight} kg</Text>
-            </View>
-          )}
+        {selectedChartPoint && (
+          <View style={styles.selectedPointBox}>
+            <Text style={styles.selectedPointDate}>Data: {selectedChartPoint.date}</Text>
+            <Text style={styles.selectedPointWeight}>Peso Smussato: {selectedChartPoint.smoothedWeight} kg</Text>
+          </View>
+        )}
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleScanPicoocBle} disabled={isScanningPicooc}>
-            <Text style={styles.primaryButtonText}>
-              {isScanningPicooc ? 'Scansione in corso...' : 'Simula / Esegui Pesata PICOOC Live'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
-  const renderSleepAlarmTab = () => {
-    return (
-      <View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sveglia Intelligente & Sonno</Text>
-          <Text style={styles.cardSubtitle}>
-            Stato monitoraggio: {isNightMonitoring ? 'Attivo (Comodino)' : 'Disattivato'}
+        <TouchableOpacity style={styles.primaryButton} onPress={handleScanPicoocBle} disabled={isScanningPicooc}>
+          <Text style={styles.primaryButtonText}>
+            {isScanningPicooc ? 'Scansione in corso...' : 'Simula / Esegui Pesata PICOOC Live'}
           </Text>
-
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: isNightMonitoring ? '#991B1B' : '#047857' }]}
-            onPress={() => setIsNightMonitoring(!isNightMonitoring)}
-          >
-            <Text style={styles.primaryButtonText}>
-              {isNightMonitoring ? 'Ferma Monitoraggio Notturno' : 'Avvia Modalità Comodino (Smart Alarm)'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
       </View>
-    );
-  };
+    </View>
+  );
+
+  const renderSleepAlarmTab = () => (
+    <View>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Sveglia Intelligente & Sonno</Text>
+        <Text style={styles.cardSubtitle}>
+          Integrazione nativa con Apple Salute. Garmin registra il sonno in background senza tenere lo schermo acceso.
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.primaryButton, { backgroundColor: isNightMonitoring ? '#991B1B' : '#047857' }]}
+          onPress={() => setIsNightMonitoring(!isNightMonitoring)}
+        >
+          <Text style={styles.primaryButtonText}>
+            {isNightMonitoring ? 'Disattiva Monitoraggio Passivo' : 'Attiva Monitoraggio Notturno Passivo'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
