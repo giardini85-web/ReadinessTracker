@@ -4,16 +4,29 @@
     "slug": "readiness-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "com.readinesstracker.app",
+      "supportsTablet": false,
+      "icon": "./assets/icon.png",
       "infoPlist": {
-        "NSHealthShareUsageDescription": "Lettura sonno e metriche",
-        "NSHealthUpdateUsageDescription": "Salvataggio Readiness",
-        "NSMicrophoneUsageDescription": "Sveglia intelligente",
-        "NSMotionUsageDescription": "Attigrafia notturna",
-        "NSBluetoothAlwaysUsageDescription": "PICOOC Mini",
-        "UIBackgroundModes": ["audio", "bluetooth-central", "fetch", "processing"]
+        "NSHealthShareUsageDescription": "L'app necessita di leggere HRV, sonno, frequenza cardiaca e peso da Apple Salute per calcolare il punteggio di Readiness e i trend EWMA.",
+        "NSHealthUpdateUsageDescription": "L'app necessita di scrivere i dati di Readiness e metriche giornaliere su Apple Salute.",
+        "NSMicrophoneUsageDescription": "Utilizzato per la sveglia intelligente e il monitoraggio dei decibel notturni.",
+        "NSMotionUsageDescription": "Utilizzato per l'attigrafia e il rilevamento del movimento notturno.",
+        "NSBluetoothAlwaysUsageDescription": "Utilizzato per la connessione e la sincronizzazione live con la bilancia PICOOC Mini.",
+        "UIBackgroundModes": [
+          "audio",
+          "bluetooth-central",
+          "fetch",
+          "processing"
+        ]
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-sqlite"
+      ]
+    ]
   }
 }

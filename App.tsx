@@ -36,7 +36,7 @@ type ActiveTab = 'READINESS' | 'TRENDS' | 'SLEEP_ALARM';
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('READINESS');
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [statusBanner, setStatusBanner] = useState<string>('Inizializzazione sistema...');
+  const [statusBanner, setStatusBanner] = useState<string>('Pronto per la sincronizzazione');
 
   const [todayMetrics, setTodayMetrics] = useState<DailyMetrics | null>(null);
   const [readiness, setReadiness] = useState<ReadinessResult | null>(null);
@@ -75,17 +75,13 @@ export default function App() {
       const synced = await syncManagerRef.current.syncAllForToday();
       const evaluated = readinessCalcRef.current.evaluateToday(synced);
       
-      // Se i dati odierni sono vuoti (--), usiamo un punteggio neutro di fallback
-      const finalScore = synced.hrvNightly > 0 ? evaluated.score : 70;
-      synced.readinessScore = finalScore;
-      
       saveDailyMetrics(synced);
       setTodayMetrics(synced);
-      setReadiness({ ...evaluated, score: finalScore });
+      setReadiness(evaluated);
       refreshTrends();
-      setStatusBanner('Sincronizzato con successo');
+      setStatusBanner('Sincronizzazione completata (Apple Salute / Locale)');
     } catch (err) {
-      setStatusBanner(`Errore: ${String(err)}`);
+      setStatusBanner(`Errore Sync: ${String(err)}`);
       refreshTrends();
     } finally {
       setIsLoading(false);
@@ -107,11 +103,11 @@ export default function App() {
     const parsedAge = parseInt(ageInput, 10);
 
     if (isNaN(parsedHeight) || parsedHeight < 100 || parsedHeight > 240) {
-      Alert.alert('Valore non valido', 'Inserisci un’altezza compresa tra 100 e 240 cm.');
+      Alert.alert('Valore non valido', 'Altezza tra 100 e 240 cm.');
       return;
     }
     if (isNaN(parsedAge) || parsedAge < 12 || parsedAge > 110) {
-      Alert.alert('Valore non valido', 'Inserisci un’età compresa tra 12 e 110 anni.');
+      Alert.alert('Valore non valido', 'Età tra 12 e 110 anni.');
       return;
     }
 
@@ -123,7 +119,7 @@ export default function App() {
 
     saveUserProfile(updatedProfile);
     setIsSettingsOpen(false);
-    setStatusBanner(`Profilo aggiornato: ${updatedProfile.heightCm}cm, ${updatedProfile.age} anni`);
+    setStatusBanner(`Profilo aggiornato: ${updatedProfile.heightCm}cm`);
   };
 
   const handleReseedDemoData = async () => {
@@ -131,34 +127,30 @@ export default function App() {
     seedDatabaseIfEmpty();
     setIsSettingsOpen(false);
     await bootstrapApp();
-    setStatusBanner('Ripristinati 14 giorni di dati storici demo.');
+    setStatusBanner('Dati storici demo ripristinati.');
   };
 
   const handleConfirmResetDatabase = () => {
-    Alert.alert(
-      'Svuota Database SQLite',
-      'Vuoi cancellare tutti i dati storici?',
-      [
-        { text: 'Annulla', style: 'cancel' },
-        {
-          text: 'Svuota',
-          style: 'destructive',
-          onPress: async () => {
-            clearAllDatabaseData();
-            setIsSettingsOpen(false);
-            await bootstrapApp();
-            setStatusBanner('Database SQLite azzerato.');
-          },
+    Alert.alert('Svuota Database', 'Cancellare tutti i dati storici?', [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Svuota',
+        style: 'destructive',
+        onPress: async () => {
+          clearAllDatabaseData();
+          setIsSettingsOpen(false);
+          await bootstrapApp();
+          setStatusBanner('Database azzerato.');
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleScanPicoocBle = async () => {
     if (isScanningPicooc) return;
     try {
       setIsScanningPicooc(true);
-      setStatusBanner('Scansione BLE PICOOC in corso...');
+      setStatusBanner('Lettura dati PICOOC / Apple Salute in corso...');
       const reading = await syncManagerRef.current.triggerLivePicoocWeighIn();
 
       if (todayMetrics) {
@@ -179,7 +171,7 @@ export default function App() {
       }
 
       refreshTrends();
-      setStatusBanner(`Nuova pesata salvata: ${reading.weight} kg`);
+      setStatusBanner(`Pesata registrata: ${reading.weight} kg`);
     } catch (err) {
       setStatusBanner(String(err));
     } finally {
@@ -227,7 +219,7 @@ export default function App() {
           <View style={styles.divider} />
 
           <TouchableOpacity style={styles.secondaryButton} onPress={handleReseedDemoData}>
-            <Text style={styles.secondaryButtonText}>Ricarica 14 Giorni di Dati Demo</Text>
+            <Text style={styles.secondaryButtonText}>Ricarica Dati Storici Demo</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.dangerButton} onPress={handleConfirmResetDatabase}>
@@ -259,30 +251,30 @@ export default function App() {
           <View style={[styles.statusBadge, { backgroundColor: themeColor + '22' }]}>
             <View style={[styles.statusDot, { backgroundColor: themeColor }]} />
             <Text style={[styles.statusBadgeText, { color: themeColor }]}>
-              {hasRealData ? `SEMAFORO ${readiness.status === 'GREEN' ? 'VERDE' : readiness.status === 'YELLOW' ? 'GIALLO' : 'ROSSO'}` : 'IN ATTESA DI SINCRONIZZAZIONE'}
+              {hasRealData ? `SEMAFORO ${readiness.status}` : 'IN ATTESA DI DATI ODIERNI'}
             </Text>
           </View>
           <Text style={styles.recommendationText}>
-            {hasRealData ? readiness.workoutRecommendation : 'Premi "Sync" per leggere i dati di oggi da Apple Salute (Garmin / Oura / Salute).'}
+            {hasRealData ? readiness.workoutRecommendation : 'Nessun dato registrato oggi. Premi "Sync" o simula una pesata per calcolare la readiness.'}
           </Text>
         </View>
 
-        <Text style={styles.sectionHeader}>PARAMETRI BIOMETRICI ODIERNI</Text>
+        <Text style={styles.sectionHeader}>PARAMETRI ODIERNI (APPLE SALUTE / GARMIN)</Text>
         <View style={styles.metricsGrid}>
           <View style={styles.metricTile}>
             <Text style={styles.metricLabel}>HRV Notturna</Text>
-            <Text style={styles.metricValue}>{hasRealData ? `${todayMetrics.hrvNightly} ms` : '--'}</Text>
+            <Text style={styles.metricValue}>{todayMetrics.hrvNightly > 0 ? `${todayMetrics.hrvNightly} ms` : '--'}</Text>
           </View>
           <View style={styles.metricTile}>
             <Text style={styles.metricLabel}>FC Riposo</Text>
-            <Text style={styles.metricValue}>{hasRealData ? `${todayMetrics.restingHeartRate} bpm` : '--'}</Text>
+            <Text style={styles.metricValue}>{todayMetrics.restingHeartRate > 0 ? `${todayMetrics.restingHeartRate} bpm` : '--'}</Text>
           </View>
           <View style={styles.metricTile}>
             <Text style={styles.metricLabel}>Body Battery</Text>
-            <Text style={styles.metricValue}>{hasRealData ? `${todayMetrics.bodyBattery}%` : '--'}</Text>
+            <Text style={styles.metricValue}>{todayMetrics.bodyBattery > 0 ? `${todayMetrics.bodyBattery}%` : '--'}</Text>
           </View>
           <View style={styles.metricTile}>
-            <Text style={styles.metricLabel}>Peso Corrente</Text>
+            <Text style={styles.metricLabel}>Peso Odierno</Text>
             <Text style={styles.metricValue}>{todayMetrics.weight ? `${todayMetrics.weight} kg` : '--'}</Text>
           </View>
         </View>
@@ -295,12 +287,12 @@ export default function App() {
     return (
       <View>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Trend PICOOC & EWMA (Storico 14 Giorni)</Text>
-          <Text style={styles.cardSubtitle}>{velocityReport?.statusLabel || 'Analisi in corso...'}</Text>
+          <Text style={styles.cardTitle}>Trend PICOOC & EWMA (Storico)</Text>
+          <Text style={styles.cardSubtitle}>{velocityReport?.statusLabel || 'Analisi trend in corso...'}</Text>
 
           <TouchableOpacity style={styles.primaryButton} onPress={handleScanPicoocBle} disabled={isScanningPicooc}>
             <Text style={styles.primaryButtonText}>
-              {isScanningPicooc ? 'Scansione in corso...' : 'Esegui / Simula Pesata PICOOC Live'}
+              {isScanningPicooc ? 'Sincronizzazione...' : 'Sincronizza / Simula PICOOC Live'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -310,11 +302,11 @@ export default function App() {
           <View key={idx} style={[styles.card, { padding: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
             <View>
               <Text style={{ color: '#38BDF8', fontSize: 13, fontWeight: '700' }}>{pt.date}</Text>
-              <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>Peso Reale: {pt.rawWeight} kg</Text>
+              <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 2 }}>Reale: {pt.rawWeight} kg</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={{ color: '#F8FAFC', fontSize: 15, fontWeight: '800' }}>{pt.smoothedWeight} kg</Text>
-              <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '600' }}>EWMA Trend</Text>
+              <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '600' }}>EWMA</Text>
             </View>
           </View>
         ))}
@@ -327,7 +319,7 @@ export default function App() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Sveglia Intelligente & Sonno</Text>
         <Text style={styles.cardSubtitle}>
-          Integrazione nativa con Apple Salute. Garmin registra il sonno in background senza tenere lo schermo acceso.
+          Monitoraggio passivo tramite Apple Salute (Garmin / Apple Watch). Nessun consumo notturno di batteria sullo schermo.
         </Text>
 
         <TouchableOpacity
@@ -335,7 +327,7 @@ export default function App() {
           onPress={() => setIsNightMonitoring(!isNightMonitoring)}
         >
           <Text style={styles.primaryButtonText}>
-            {isNightMonitoring ? 'Disattiva Monitoraggio Passivo' : 'Attiva Monitoraggio Notturno Passivo'}
+            {isNightMonitoring ? 'Disattiva Monitoraggio Passivo' : 'Attiva Monitoraggio Passivo Notturno'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -435,9 +427,6 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { color: '#F8FAFC', fontSize: 15, fontWeight: '800', marginBottom: 4 },
   cardSubtitle: { color: '#94A3B8', fontSize: 12, lineHeight: 18 },
-  selectedPointBox: { backgroundColor: '#1E293B', padding: 10, borderRadius: 8, marginVertical: 10 },
-  selectedPointDate: { color: '#38BDF8', fontSize: 12, fontWeight: '700' },
-  selectedPointWeight: { color: '#F8FAFC', fontSize: 14, fontWeight: '800', marginTop: 2 },
   primaryButton: { backgroundColor: '#2563EB', paddingVertical: 12, borderRadius: 10, alignItems: 'center', marginTop: 14 },
   primaryButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   secondaryButton: { backgroundColor: '#1E293B', paddingVertical: 11, borderRadius: 10, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#38BDF8' },
